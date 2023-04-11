@@ -1,4 +1,5 @@
 # ps-wazuh-lab
+Methods for installing Wazuh (in PS labs)  
 
 ## Local install
 sudo git -c http.proxy=$HTTP_PROXY clone https://github.com/Turzum/ps-wazuh-lab.git  
