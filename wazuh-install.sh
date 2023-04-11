@@ -1164,7 +1164,7 @@ function dashboard_initialize() {
         print_ip="${nodes_dashboard_ip}"
     fi
 
-    until [ "$(curl --proxy $PROXY -k -XGET https://"${nodes_dashboard_ip}"/status -uadmin:"${u_pass}" -k -w %"{http_code}" -s -o /dev/null)" -eq "200" ] || [ "${j}" -eq "12" ]; do
+    until [ "$(curl -XGET https://"${nodes_dashboard_ip}"/status -uadmin:"${u_pass}" -k -w %"{http_code}" -s -o /dev/null)" -eq "200" ] || [ "${j}" -eq "12" ]; do
         sleep 10
         j=$((j+1))
     done
@@ -1196,13 +1196,13 @@ function dashboard_initialize() {
         common_logger "${flag}" "Cannot connect to Wazuh dashboard."
 
         for i in "${!indexer_node_ips[@]}"; do
-            curl --proxy $PROXY -k =$(curl --proxy $PROXY -k -XGET https://"${indexer_node_ips[i]}":9200/ -uadmin:"${u_pass}" -k -s)
+            curl =$(curl -XGET https://"${indexer_node_ips[i]}":9200/ -uadmin:"${u_pass}" -k -s)
             exit_code=${PIPESTATUS[0]}
             if [[ "${exit_code}" -eq "7" ]]; then
                 failed_connect=1
                 failed_nodes+=("${indexer_node_names[i]}")
             fi
-            if [ "${curl --proxy $PROXY -k}" == "OpenSearch Security not initialized." ]; then
+            if [ "${curl}" == "OpenSearch Security not initialized." ]; then
                 sec_not_initialized=1
             fi
         done
@@ -1229,12 +1229,12 @@ function dashboard_initializeAIO() {
 
     common_logger "Initializing Wazuh dashboard web application."
     installCommon_getPass "admin"
-    http_code=$(curl --proxy $PROXY -k -XGET https://localhost/status -uadmin:"${u_pass}" -k -w %"{http_code}" -s -o /dev/null)
+    http_code=$(curl -XGET https://localhost/status -uadmin:"${u_pass}" -k -w %"{http_code}" -s -o /dev/null)
     retries=0
     max_dashboard_initialize_retries=20
     while [ "${http_code}" -ne "200" ] && [ "${retries}" -lt "${max_dashboard_initialize_retries}" ]
     do
-        http_code=$(curl --proxy $PROXY -k -XGET https://localhost/status -uadmin:"${u_pass}" -k -w %"{http_code}" -s -o /dev/null)
+        http_code=$(curl -XGET https://localhost/status -uadmin:"${u_pass}" -k -w %"{http_code}" -s -o /dev/null)
         common_logger "Wazuh dashboard web application not yet initialized. Waiting..."
         retries=$((retries+1))
         sleep 15
@@ -1272,7 +1272,7 @@ function dashboard_install() {
 # ------------ filebeat.sh ------------ 
 function filebeat_configure(){
 
-    eval "curl --proxy $PROXY -k -so /etc/filebeat/wazuh-template.json ${filebeat_wazuh_template} --max-time 300 ${debug}"
+    eval "curl -so /etc/filebeat/wazuh-template.json ${filebeat_wazuh_template} --max-time 300 ${debug}"
     if [ ! -f "/etc/filebeat/wazuh-template.json" ]; then
         common_logger -e "Error downloading wazuh-template.json file."
         installCommon_rollBack
@@ -1280,7 +1280,7 @@ function filebeat_configure(){
     fi
     
     eval "chmod go+r /etc/filebeat/wazuh-template.json ${debug}"
-    eval "curl --proxy $PROXY -k -s ${filebeat_wazuh_module} --max-time 300 | tar -xvz -C /usr/share/filebeat/module ${debug}"
+    eval "curl -s ${filebeat_wazuh_module} --max-time 300 | tar -xvz -C /usr/share/filebeat/module ${debug}"
     if [ ! -d "/usr/share/filebeat/module" ]; then
         common_logger -e "Error downloading wazuh filebeat module."
         installCommon_rollBack
@@ -1475,7 +1475,7 @@ function indexer_initialize() {
 
     common_logger "Initializing Wazuh indexer cluster security settings."
     i=0
-    until curl --proxy $PROXY -k -XGET https://"${indexer_node_ips[pos]}":9200/ -uadmin:admin -k --max-time 120 --silent --output /dev/null || [ "${i}" -eq 12 ]; do
+    until curl -XGET https://"${indexer_node_ips[pos]}":9200/ -uadmin:admin -k --max-time 120 --silent --output /dev/null || [ "${i}" -eq 12 ]; do
         sleep 10
         i=$((i+1))
     done
@@ -1523,12 +1523,12 @@ function indexer_startCluster() {
 
     retries=0
     for ip_to_test in "${indexer_node_ips[@]}"; do
-        eval "curl --proxy $PROXY -k -XGET https://"${ip_to_test}":9200/ -k -s -o /dev/null"
+        eval "curl -XGET https://"${ip_to_test}":9200/ -k -s -o /dev/null"
         e_code="${PIPESTATUS[0]}"
         until [ "${e_code}" -ne 7 ] || [ "${retries}" -eq 12 ]; do
             sleep 10
             retries=$((retries+1))
-            eval "curl --proxy $PROXY -k -XGET https://"${ip_to_test}":9200/ -k -s -o /dev/null"
+            eval "curl -XGET https://"${ip_to_test}":9200/ -k -s -o /dev/null"
             e_code="${PIPESTATUS[0]}"
         done
         if [ ${retries} -eq 12 ]; then
@@ -1544,7 +1544,7 @@ function indexer_startCluster() {
     else
         common_logger "Wazuh indexer cluster security configuration initialized."
     fi
-    eval "curl --proxy $PROXY -k --silent ${filebeat_wazuh_template} | curl --proxy $PROXY -k -X PUT 'https://${indexer_node_ips[pos]}:9200/_template/wazuh' -H 'Content-Type: application/json' -d @- -uadmin:admin -k --silent ${debug}"
+    eval "curl --silent ${filebeat_wazuh_template} | curl -X PUT 'https://${indexer_node_ips[pos]}:9200/_template/wazuh' -H 'Content-Type: application/json' -d @- -uadmin:admin -k --silent ${debug}"
     if [  "${PIPESTATUS[0]}" != 0  ]; then
         common_logger -e "The wazuh-alerts template could not be inserted into the Wazuh indexer cluster."
         exit 1
@@ -1595,7 +1595,7 @@ function installCommon_addWazuhRepo() {
             eval "curl --proxy $PROXY -k -s ${repogpg} --max-time 300 | gpg --no-default-keyring --keyring gnupg-ring:/usr/share/keyrings/wazuh.gpg --import - ${debug}"
             eval "chmod 644 /usr/share/keyrings/wazuh.gpg ${debug}"
             eval "echo \"deb [signed-by=/usr/share/keyrings/wazuh.gpg] ${repobaseurl}/apt/ ${reporelease} main\" | tee /etc/apt/sources.list.d/wazuh.list ${debug}"
-            eval "apt-get update -q ${debug}"
+            eval "http_proxy=$PROXY apt-get update -q ${debug}"
             eval "chmod 644 /etc/apt/sources.list.d/wazuh.list ${debug}"
         fi
     else
@@ -1618,7 +1618,7 @@ function installCommon_aptInstall() {
     else
         installer=${package}
     fi
-    command="DEBIAN_FRONTEND=noninteractive apt-get install ${installer} -y -q ${debug}"
+    command="DEBIAN_FRONTEND=noninteractive http_proxy=$PROXY apt-get install ${installer} -y -q ${debug}"
     seconds=30
     eval "${command}"
     install_result="${PIPESTATUS[0]}"
@@ -1643,7 +1643,7 @@ function installCommon_changePasswordApi() {
             if [ -n "${wazuh}" ] || [ -n "${AIO}" ]; then
                 passwords_getApiUserId "${api_users[i]}"
                 WAZUH_PASS_API='{"password":"'"${api_passwords[i]}"'"}'
-                eval 'curl --proxy $PROXY -k  -s -k -X PUT -H "Authorization: Bearer $TOKEN_API" -H "Content-Type: application/json" -d "$WAZUH_PASS_API" "https://localhost:55000/security/users/${user_id}" -o /dev/null'
+                eval 'curl -s -k -X PUT -H "Authorization: Bearer $TOKEN_API" -H "Content-Type: application/json" -d "$WAZUH_PASS_API" "https://localhost:55000/security/users/${user_id}" -o /dev/null'
                 if [ "${api_users[i]}" == "${adminUser}" ]; then
                     sleep 1
                     adminPassword="${api_passwords[i]}"
@@ -1658,7 +1658,7 @@ function installCommon_changePasswordApi() {
         if [ -n "${wazuh}" ] || [ -n "${AIO}" ]; then
             passwords_getApiUserId "${nuser}"
             WAZUH_PASS_API='{"password":"'"${password}"'"}'
-            eval 'curl --proxy $PROXY -s -k -X PUT -H "Authorization: Bearer $TOKEN_API" -H "Content-Type: application/json" -d "$WAZUH_PASS_API" "https://localhost:55000/security/users/${user_id}" -o /dev/null'
+            eval 'curl -s -k -X PUT -H "Authorization: Bearer $TOKEN_API" -H "Content-Type: application/json" -d "$WAZUH_PASS_API" "https://localhost:55000/security/users/${user_id}" -o /dev/null'
         fi
         if [ "${nuser}" == "wazuh-wui" ] && { [ -n "${dashboard}" ] || [ -n "${AIO}" ]; }; then
                 passwords_changeDashboardApiPassword "${password}"
@@ -1827,7 +1827,7 @@ function installCommon_installPrerequisites() {
         fi
 
     elif [ "${sys_type}" == "apt-get" ]; then
-        eval "apt-get update -q ${debug}"
+        eval "http_proxy=$PROXY apt-get update -q ${debug}"
         dependencies=( apt-transport-https curl libcap2-bin tar software-properties-common gnupg openssl )
         not_installed=()
 
@@ -3440,7 +3440,7 @@ function passwords_changePasswordApi() {
             if [ -n "${wazuh_installed}" ]; then
                 passwords_getApiUserId "${api_users[i]}"
                 WAZUH_PASS_API='{"password":"'"${api_passwords[i]}"'"}'
-                eval 'curl --proxy $PROXY -s -k -X PUT -H "Authorization: Bearer $TOKEN_API" -H "Content-Type: application/json" -d "$WAZUH_PASS_API" "https://localhost:55000/security/users/${user_id}" -o /dev/null'
+                eval 'curl -s -k -X PUT -H "Authorization: Bearer $TOKEN_API" -H "Content-Type: application/json" -d "$WAZUH_PASS_API" "https://localhost:55000/security/users/${user_id}" -o /dev/null'
                 if [ "${api_users[i]}" == "${adminUser}" ]; then
                     sleep 1
                     adminPassword="${api_passwords[i]}"
@@ -3458,7 +3458,7 @@ function passwords_changePasswordApi() {
         if [ -n "${wazuh_installed}" ]; then
             passwords_getApiUserId "${nuser}"
             WAZUH_PASS_API='{"password":"'"${password}"'"}'
-            eval 'curl --proxy $PROXY -s -k -X PUT -H "Authorization: Bearer $TOKEN_API" -H "Content-Type: application/json" -d "$WAZUH_PASS_API" "https://localhost:55000/security/users/${user_id}" -o /dev/null'
+            eval 'curl -s -k -X PUT -H "Authorization: Bearer $TOKEN_API" -H "Content-Type: application/json" -d "$WAZUH_PASS_API" "https://localhost:55000/security/users/${user_id}" -o /dev/null'
             if [ -z "${AIO}" ] && [ -z "${indexer}" ] && [ -z "${dashboard}" ] && [ -z "${wazuh}" ] && [ -z "${start_indexer_cluster}" ]; then
                 common_logger -nl $"The password for Wazuh API user ${nuser} is ${password}"
             fi
@@ -3654,11 +3654,11 @@ function passwords_getApiToken() {
     retries=0
     max_internal_error_retries=20
 
-    TOKEN_API=$(curl --proxy $PROXY -k -s -u "${adminUser}":"${adminPassword}" -k -X POST "https://localhost:55000/security/user/authenticate?raw=true" --max-time 300 --retry 5 --retry-delay 5)
+    TOKEN_API=$(curl -s -u "${adminUser}":"${adminPassword}" -k -X POST "https://localhost:55000/security/user/authenticate?raw=true" --max-time 300 --retry 5 --retry-delay 5)
     while [[ "${TOKEN_API}" =~ "Wazuh Internal Error" ]] && [ "${retries}" -lt "${max_internal_error_retries}" ]
     do
         common_logger "There was an error accessing the API. Retrying..."
-        TOKEN_API=$(curl --proxy $PROXY -k -s -u "${adminUser}":"${adminPassword}" -k -X POST "https://localhost:55000/security/user/authenticate?raw=true" --max-time 300 --retry 5 --retry-delay 5)
+        TOKEN_API=$(curl -s -u "${adminUser}":"${adminPassword}" -k -X POST "https://localhost:55000/security/user/authenticate?raw=true" --max-time 300 --retry 5 --retry-delay 5)
         retries=$((retries+1))
         sleep 10
     done
@@ -3679,12 +3679,12 @@ function passwords_getApiToken() {
 }
 function passwords_getApiUsers() {
 
-    mapfile -t api_users < <(curl --proxy $PROXY -s -k -X GET -H "Authorization: Bearer $TOKEN_API" -H "Content-Type: application/json"  "https://localhost:55000/security/users?pretty=true" | grep username | awk -F': ' '{print $2}' | sed -e "s/[\'\",]//g")
+    mapfile -t api_users < <(curl -s -k -X GET -H "Authorization: Bearer $TOKEN_API" -H "Content-Type: application/json"  "https://localhost:55000/security/users?pretty=true" | grep username | awk -F': ' '{print $2}' | sed -e "s/[\'\",]//g")
 
 }
 function passwords_getApiIds() {
 
-    mapfile -t api_ids < <(curl --proxy $PROXY -s -k -X GET -H "Authorization: Bearer $TOKEN_API" -H "Content-Type: application/json"  "https://localhost:55000/security/users?pretty=true" | grep id | awk -F': ' '{print $2}' | sed -e "s/[\'\",]//g")
+    mapfile -t api_ids < <(curl -s -k -X GET -H "Authorization: Bearer $TOKEN_API" -H "Content-Type: application/json"  "https://localhost:55000/security/users?pretty=true" | grep id | awk -F': ' '{print $2}' | sed -e "s/[\'\",]//g")
 
 }
 function passwords_getApiUserId() {
