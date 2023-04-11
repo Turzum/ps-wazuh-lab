@@ -1272,7 +1272,7 @@ function dashboard_install() {
 # ------------ filebeat.sh ------------ 
 function filebeat_configure(){
 
-    eval "curl -so /etc/filebeat/wazuh-template.json ${filebeat_wazuh_template} --max-time 300 ${debug}"
+    eval "curl --proxy $PROXY -k -so /etc/filebeat/wazuh-template.json ${filebeat_wazuh_template} --max-time 300 ${debug}"
     if [ ! -f "/etc/filebeat/wazuh-template.json" ]; then
         common_logger -e "Error downloading wazuh-template.json file."
         installCommon_rollBack
@@ -1280,7 +1280,7 @@ function filebeat_configure(){
     fi
     
     eval "chmod go+r /etc/filebeat/wazuh-template.json ${debug}"
-    eval "curl -s ${filebeat_wazuh_module} --max-time 300 | tar -xvz -C /usr/share/filebeat/module ${debug}"
+    eval "curl --proxy $PROXY -k -s ${filebeat_wazuh_module} --max-time 300 | tar -xvz -C /usr/share/filebeat/module ${debug}"
     if [ ! -d "/usr/share/filebeat/module" ]; then
         common_logger -e "Error downloading wazuh filebeat module."
         installCommon_rollBack
