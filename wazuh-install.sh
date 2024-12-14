@@ -8,7 +8,7 @@
 # License (version 2) as published by the FSF - Free Software
 # Foundation.
 
-PROXY=http://tstark:pssecrocks@172.31.245.222:8888
+#PROXY=http://<USER>:<PASSWORD>@<IP>:<PORT>
 
 readonly repogpg="https://packages.wazuh.com/key/GPG-KEY-WAZUH"
 readonly repobaseurl="https://packages.wazuh.com/4.x"
